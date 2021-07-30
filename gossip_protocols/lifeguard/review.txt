@@ -1,0 +1,54 @@
+## **Introduction**
+
+Lifeguard is extension over the swim protocol which is able to significantly reduce the false positive rate
+
+## Motivation
+
+Swim is:
+
+- Robustness - if there is a network partition the system will still works
+- Simplicity - protocol is easy for implementation
+- Scalability -
+- Easy of deployment and maintenance
+
+Swim even a single overloaded member is sufficient to cause some false positive failure detection.
+
+Lifeguard does not produce false positive until 16 machines are stressed concurrently.
+
+## Swim and memberlist
+
+**Swim has two components**
+
+- Failure detector - detect failure of members
+- Destination component - dessiminate updates about members that joined or left group
+
+**Swim failure detector algorithm:**
+
+1. In some protocol period(duration) each member pick one member and probe to send a message **ping**
+2. If receive **ack then ok**
+3. else → send inderect probe to K members from the list. Every 1..K member try to probe the target member, if receive ack from the target member redirect the ack to the initial member.
+4. If initial member doesn't receive ack from the probe period, mark the member as failed
+
+**Swim dissemination component.**
+
+- Each update about member joining or leaving the group or failing is shared with one other member L*log(n) times, where n is the size of the group and L is tunable parameter
+
+**Suspicion feature**
+
+- When failure detector fail to detect member it mark it with suspected state and suspect message is gossipied vie dessimination mechanism. Any member that receives a suspect message also marks the specified member as suspect. When suspicion timeout is reached, the suspected member is declared as faulty and gossiping of confirm message.
+- If a suspicious send a alive message and reach all members then suspicision will be removed from the list.
+- The alive message can be send by suspicious when it receive suspect or confirm
+
+## Lifeguard
+
+**Local health aware probe**
+
+- The number of ack messages that have been received is compared to the number of pin and ping-req message issued. Missing ack could be due to local slowness
+
+**Local Health Aware Suspicion** - replaces the suspicion stage of swim paper with fixed timeouts with dymanic timeouts
+
+**Buddy system**
+
+In Swim a suspected member is not guaranteed to hear of the suspicion at the first opportunity(lost messages, delay messages).
+
+Buddy system replaces SWIM's piggyback message selector with one that prioritizes notifying a suspected member. This guarantees that any node that ping the suspected node will communicate the suspicion as a part of the ping.
